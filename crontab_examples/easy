@@ -1,0 +1,14 @@
+# /etc/crontab: system-wide crontab
+# Unlike any other crontab, you don't have to run the `crontab` command to install the file.
+# This file also has a username field, that none of the other crontabs do.
+
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# m  h dom mon dow user  command
+  17-19 *    * 1-2 *   root    cd / && run-parts --report /etc/cron.hourly
+  25,30 6-8    * 2-3 *   root    test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.daily )
+  25/2 6-8    * 2-3 *   root    test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.daily )
+  47 6    * * 7   www-data    test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.weekly )
+  52 6    1 * *   data    test -x /usr/sbin/anacron || ( cd / && run-parts --report /etc/cron.monthly )
+#

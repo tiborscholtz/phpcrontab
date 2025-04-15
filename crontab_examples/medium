@@ -1,0 +1,40 @@
+# /etc/crontab: system-wide crontab
+# This file has a username field, allowing for tasks to run under different users.
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# m h dom mon dow user   command
+
+# Run the system cleanup script every day at 2:30 AM
+30 2 * * *   root    /usr/local/bin/system_cleanup.sh > /var/log/system_cleanup.log 2>&1
+
+# Update system packages at 3:00 AM every Sunday
+0 3 * * 0   root    apt-get update && apt-get upgrade -y >> /var/log/apt_update.log 2>&1
+
+# Synchronize system time every 15 minutes
+*/15 * * * *   root    /usr/sbin/ntpdate -u pool.ntp.org >> /var/log/ntpdate.log 2>&1
+
+# Backup the website files daily at 1:45 AM, only on weekdays
+45 1 * * 1-5   www-data   /usr/local/bin/backup_website.sh >> /var/log/website_backup.log 2>&1
+
+# Run the database backup script at 2:00 AM on the 1st and 15th of every month
+0 2 1,15 * *   dbadmin   /usr/local/bin/backup_database.sh >> /var/log/db_backup.log 2>&1
+
+# Clear temporary files every hour
+0 * * * *   root    /usr/bin/find /tmp -type f -atime +1 -delete
+
+# Send a report via email every Monday at 8:00 AM
+0 8 * * 1   root    /usr/local/bin/generate_report.sh | mail -s "Weekly Report" admin@example.com
+
+# Reboot the server at 4:00 AM on the first day of January
+0 4 1 1 *   root    /sbin/reboot
+
+# Rotate logs on the first day of every month at 3:30 AM
+30 3 1 * *   root    /usr/sbin/logrotate /etc/logrotate.conf >> /var/log/logrotate.log 2>&1
+
+# Run a script every 10 minutes between 9:00 AM and 5:00 PM on weekdays
+*/10 9-17 * * 1-5   user1   /home/user1/scripts/monitoring_script.sh >> /var/log/monitoring_script.log 2>&1
+
+# Run a monthly maintenance script on the last day of every month at 11:59 PM
+59 23 28-31 * *   root    [ "$(date +\%d -d tomorrow)" == "01" ] && /usr/local/bin/monthly_maintenance.sh >> /var/log/monthly_maintenance.log 2>&1

@@ -1,0 +1,80 @@
+# /etc/crontab: system-wide crontab
+# Advanced system-wide crontab with complex scheduling, conditional logic, and interdependent tasks.
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# m  h  dom mon dow user    command
+
+# 1. Multi-step nightly system maintenance: Cleanup, backups, and log rotation
+#    Runs the cleanup first, and only if it succeeds, proceeds to backups. If backups succeed, rotates logs.
+
+# System cleanup at 1:00 AM daily. Continue only if successful.
+0  1  *   *   *   root    /usr/local/bin/system_cleanup.sh > /var/log/system_cleanup.log 2>&1 && \
+                         /usr/local/bin/system_backup.sh > /var/log/system_backup.log 2>&1 && \
+                         /usr/sbin/logrotate /etc/logrotate.conf > /var/log/logrotate.log 2>&1 || \
+                         echo "System maintenance failed at $(date)" | mail -s "Maintenance Alert" admin@example.com
+
+# 2. Complex database backup: Full backup on Sundays, incremental backups on weekdays
+#    Full backups are stored separately and preceded by an integrity check.
+
+# Run a full database backup at 2:00 AM every Sunday after performing a database integrity check.
+0  2  *   *   0   dbadmin /usr/local/bin/db_integrity_check.sh && \
+                         /usr/local/bin/db_full_backup.sh > /var/log/db_full_backup.log 2>&1 || \
+                         echo "Full DB Backup failed at $(date)" | mail -s "DB Backup Alert" dbadmin@example.com
+
+# Incremental database backup at 2:15 AM on weekdays, skipping if Sunday’s full backup failed.
+15 2  *   *   1-5 dbadmin [ -f /var/log/db_full_backup.log ] && \
+                         /usr/local/bin/db_incremental_backup.sh > /var/log/db_incremental_backup.log 2>&1 || \
+                         echo "Incremental DB Backup skipped due to missing full backup" | mail -s "DB Backup Notice" dbadmin@example.com
+
+# 3. Dynamic job based on system load: Run resource-intensive analysis only if load is below threshold.
+
+# Run resource analysis at 3:00 AM daily, but only if the system load average is below 1.0.
+0  3  *   *   *   analytics [ $(awk '{print $1}' /proc/loadavg | cut -d. -f1) -lt 1 ] && \
+                         /usr/local/bin/resource_analysis.sh > /var/log/resource_analysis.log 2>&1 || \
+                         echo "Resource analysis skipped due to high load at $(date)" >> /var/log/resource_analysis.log
+
+# 4. Remote sync with fallback: Attempt sync with primary server, fall back to secondary if primary fails.
+
+# Sync critical files to a remote server at 4:00 AM daily. If primary server is down, sync to a secondary server.
+0  4  *   *   *   root    rsync -avz /critical_data/ user@primary_server:/backup/ > /var/log/rsync_primary.log 2>&1 || \
+                         rsync -avz /critical_data/ user@secondary_server:/backup/ > /var/log/rsync_secondary.log 2>&1 || \
+                         echo "Rsync failed at $(date)" | mail -s "Rsync Alert" sysadmin@example.com
+
+# 5. Security scans and updates: Conditional execution based on update status.
+
+# Run a security scan at 5:00 AM daily. Only if updates were successful the previous day.
+0  5  *   *   *   security [ -f /var/log/apt_update.log ] && grep -q '0 upgraded, 0 newly installed' /var/log/apt_update.log && \
+                         /usr/local/bin/security_scan.sh > /var/log/security_scan.log 2>&1 || \
+                         echo "Security scan skipped due to pending updates" >> /var/log/security_scan.log
+
+# 6. Rotating backups with expiration: Keep weekly backups, delete ones older than a month.
+
+# Rotate backups every Sunday at 6:00 AM, deleting backups older than 30 days.
+0  6  *   *   0   root    /usr/local/bin/rotate_backups.sh --keep=4 --older-than=30d > /var/log/rotate_backups.log 2>&1 || \
+                         echo "Backup rotation failed at $(date)" | mail -s "Backup Rotation Alert" backupadmin@example.com
+
+# 7. Conditional script execution based on previous task success: Application log aggregation and archival.
+
+# Aggregate logs if the log rotation succeeded earlier, at 6:30 AM on the first of each month.
+30 6 1 * *   root    [ -f /var/log/logrotate.log ] && /usr/local/bin/aggregate_logs.sh >> /var/log/aggregate_logs.log 2>&1 || \
+                         echo "Log aggregation skipped due to log rotation failure" >> /var/log/aggregate_logs.log
+
+# 8. Maintenance window checks: Warn if a critical job is scheduled outside of the maintenance window.
+
+# Check for jobs scheduled outside the 1:00 AM - 5:00 AM window at 7:00 AM daily. Notify admin if found.
+0  7  *   *   *   root    /usr/local/bin/check_maintenance_window.sh >> /var/log/maintenance_check.log 2>&1 || \
+                         echo "Maintenance window violation detected at $(date)" | mail -s "Maintenance Alert" admin@example.com
+
+# 9. Monthly report generation with retry logic: Retry up to three times if the report fails.
+
+# Generate a monthly report at 8:00 AM on the first Monday of every month. Retry if the first attempt fails.
+0  8  *   *   1   root    for i in {1..3}; do /usr/local/bin/generate_monthly_report.sh > /var/log/monthly_report.log 2>&1 && break || \
+                         echo "Attempt $i failed for monthly report generation at $(date)" >> /var/log/monthly_report.log; sleep 10; done
+
+# 10. Smart alerts: Notify admin only if the disk usage exceeds 80%, checked every hour.
+
+# Monitor disk space hourly and send an alert if usage exceeds 80%.
+0  *  *   *   *   root    [ $(df / | awk 'NR==2 {print $5}' | sed 's/%//') -gt 80 ] && \
+                         echo "Disk space alert: Usage exceeds 80% at $(date)" | mail -s "Disk Space Alert" admin@example.com
